@@ -23,7 +23,7 @@ end
 module LoggerHelper
   def logger
     @__logger ||= Logger.new(STDERR).tap do |logger|
-      if $DYNFLOW_EXAMPLE_VERBOSE
+      if $DYNFLOW_BENCHMARK_VERBOSE
         logger.level = Logger::DEBUG
       else
         logger.level = Logger::INFO
@@ -66,7 +66,7 @@ class BenchmarkHelper
     end
 
     def logger_adapter
-      Dynflow::LoggerAdapters::Simple.new $stderr, $DYNFLOW_EXAMPLE_VERBOSE ? 1 : 4
+      Dynflow::LoggerAdapters::Simple.new $stderr, $DYNFLOW_BENCHMARK_VERBOSE ? 1 : 4
     end
 
     def run_web_console(world)

@@ -3,6 +3,92 @@
 require_relative 'benchmark_helper'
 require 'optparse'
 
+BenchmarkSetting = Struct.new(:connection_string,
+                              :observer_only,
+                              :executor_only,
+                              :plans_count,
+                              :executors_count,
+                              :clients_count,
+                              :sub_actions_count,
+                              :step_duration,
+                              :ping_interval,
+                              :max_iterations) do
+  def set_defaults
+    pg_user = ENV['USER'] == 'foreman' ? 'foreman' : 'postgres'
+    self.connection_string = "postgres://#{pg_user}@/dynflow_benchmark"
+    self.observer_only = false
+    self.executor_only = false
+    self.plans_count = 100
+    self.executors_count = 1
+    self.clients_count = 1
+    self.sub_actions_count = 2
+    self.step_duration = 0.5
+    self.ping_interval = 0.5
+    self.max_iterations = 2
+  end
+
+  def action_options
+    { sub_actions_count: sub_actions_count,
+      step_duration: step_duration,
+      ping_interval: ping_interval,
+      max_iterations: max_iterations }
+  end
+end
+
+settings = BenchmarkSetting.new.tap(&:set_defaults)
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: benchmark.rb [options]"
+
+  opts.on("c", "--connection-string [CONNECTION_STRING]", "Database connection string (default #{settings.connection_string}") do |v|
+    settings.connection_string = v
+  end
+
+  opts.on("-O", "--observer", "Run only observer") do
+    settings.observer_only = true
+  end
+
+  opts.on("-E", "--executor", "Run only executor") do
+    settings.executor_only = true
+  end
+
+  opts.on("-e", "--executors-count EXECUTORS_COUNT", "Number of executors to run (default #{settings.executors_count})") do |v|
+    settings.executors_count = v.to_i
+  end
+
+  opts.on("-c", "--clients-count CLIENTS_COUNT", "Number of clients to run (default #{settings.clients_count})") do |v|
+    settings.clients_count = v.to_i
+  end
+
+  opts.on("-p", "--plans-count PLANS_COUNT", "Number of plans to run (default #{settings.plans_count})") do |v|
+    settings.plans_count = v.to_i
+  end
+
+  opts.on("-s", "--sub-actions-count SUB_ACTIONS_COUNT", "Number of sub-actions in main action (default #{settings.sub_actions_count})") do |v|
+    settings.sub_actions_count = v.to_i
+  end
+
+  opts.on("-d", "--step-duration STEP_DURATION", "Duration of a single step in seconds (default #{settings.step_duration})") do |v|
+    settings.step_duration = v.to_f
+  end
+
+  opts.on("-i", "--ping-interval PING_INTERVAL", "Interval between two action events in seconds (default #{settings.ping_interval})") do |v|
+    settings.ping_interval = v.to_f
+  end
+
+  opts.on("-m", "--max-iterations MAX_ITERATIONS", "How many events to distribute per action (default #{settings.max_iterations})") do |v|
+    settings.max_iterations = v.to_i
+  end
+
+  opts.on("-v", "--verbose", "Be verbose") do |verbose|
+    $DYNFLOW_BENCHMARK_VERBOSE = true
+  end
+
+
+end.parse!
+
+ENV['DB_CONN_STRING'] ||= settings.connection_string
+
 class SampleAction < Dynflow::Action
   def plan(sub_actions_count: 2,
            step_duration: 0.5,
@@ -57,93 +143,6 @@ class SampleSubAction < Dynflow::Action
     sleep step_duration
   end
 end
-
-BenchmarkSetting = Struct.new(:connection_string,
-                              :observer_only,
-                              :executor_only,
-                              :plans_count,
-                              :executors_count,
-                              :clients_count,
-                              :sub_actions_count,
-                              :step_duration,
-                              :ping_interval,
-                              :max_iterations) do
-  def set_defaults
-    pg_user = ENV['USER'] == 'foreman' ? 'foreman' : 'postgres'
-    self.connection_string = "postgres://#{pg_user}@/dynflow_benchmark"
-    self.observer_only = false
-    self.executor_only = false
-    self.plans_count = 100
-    self.executors_count = 1
-    self.clients_count = 1
-    self.sub_actions_count = 2
-    self.step_duration = 0.5
-    self.ping_interval = 0.5
-    self.max_iterations = 2
-  end
-
-  def action_options
-    { sub_actions_count: sub_actions_count,
-      step_duration: step_duration,
-      ping_interval: ping_interval,
-      max_iterations: max_iterations }
-  end
-end
-
-settings = BenchmarkSetting.new.tap(&:set_defaults)
-
-
-OptionParser.new do |opts|
-  opts.banner = "Usage: benchmark.rb [options]"
-
-  opts.on("c", "--connection-string [CONNECTION_STRING]", "Database connection string (default #{settings.connection_string}") do |v|
-    settings.connection_string = v
-  end
-
-  opts.on("-O", "--observer", "Run only observer") do
-    settings.observer_only = true
-  end
-
-  opts.on("-E", "--executor", "Run only executor") do
-    settings.executor_only = true
-  end
-
-  opts.on("-e", "--executors-count EXECUTORS_COUNT", "Number of executors to run (default #{settings.executors_count})") do |v|
-    settings.executors_count = v.to_i
-  end
-
-  opts.on("-c", "--clients-count CLIENTS_COUNT", "Number of clients to run (default #{settings.clients_count})") do |v|
-    settings.clients_count = v.to_i
-  end
-
-  opts.on("-p", "--plans-count PLANS_COUNT", "Number of plans to run (default #{settings.plans_count})") do |v|
-    settings.plans_count = v.to_i
-  end
-
-  opts.on("-s", "--sub-actions-count SUB_ACTIONS_COUNT", "Number of sub-actions in main action (default #{settings.sub_actions_count})") do |v|
-    settings.sub_actions_count = v.to_i
-  end
-
-  opts.on("-d", "--step-duration STEP_DURATION", "Duration of a single step in seconds (default #{settings.step_duration})") do |v|
-    settings.step_duration = v.to_f
-  end
-
-  opts.on("-i", "--ping-interval PING_INTERVAL", "Interval between two action events in seconds (default #{settings.ping_interval})") do |v|
-    settings.ping_interval = v.to_f
-  end
-
-  opts.on("-m", "--max-iterations MAX_ITERATIONS", "How many events to distribute per action (default #{settings.max_iterations})") do |v|
-    settings.max_iterations = v.to_i
-  end
-
-  opts.on("-v", "--verbose", "Be verbose") do |verbose|
-    $DYNFLOW_EXAMPLE_VERBOSE = true
-  end
-
-
-end.parse!
-
-ENV['DB_CONN_STRING'] ||= settings.connection_string
 
 class BenchmarkReport
   def initialize(started_at, client, settings)
