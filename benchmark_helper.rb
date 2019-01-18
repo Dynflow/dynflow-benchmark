@@ -1,16 +1,22 @@
 if ENV['DYNFLOW_PATH']
   $:.unshift(ENV['DYNFLOW_PATH'])
-elsif File.exists?('lib/dynflow.rb')
+elsif File.exists?('./lib/dynflow.rb')
   $:.unshift('./lib')
 end
 
 begin
   require 'dynflow'
-rescue LoadError
+  require 'dynflow/version'
+rescue LoadError => e
+  puts e
   puts <<EOF
 Dynflow source code not present. Install the version of Dynflow you want
 to benchmark, set DYNFLOW_PATH to the path where the source is located or
-run the executable from the Dynflow directory
+run the executable from the Dynflow directory.
+
+On Foreman system, you might want to run
+
+    scl enable tfm bash
 EOF
 end
 
@@ -44,7 +50,9 @@ class BenchmarkHelper
       config.logger_adapter      = logger_adapter
       config.auto_rescue         = false
       config.auto_execute        = false
-      config.telemetry_adapter   = telemetry_adapter
+      if Gem::Version.new(Dynflow::VERSION) >= Gem::Version.new('1.1')
+        config.telemetry_adapter   = telemetry_adapter
+      end
       yield config if block_given?
       Dynflow::World.new(config)
     end
@@ -58,7 +66,7 @@ class BenchmarkHelper
     end
 
     def logger_adapter
-      Dynflow::LoggerAdapters::Simple.new $stderr, 4
+      Dynflow::LoggerAdapters::Simple.new $stderr, $DYNFLOW_EXAMPLE_VERBOSE ? 1 : 4
     end
 
     def run_web_console(world)
@@ -114,6 +122,7 @@ class BenchmarkHelper
         config.persistence_adapter = persistence_adapter
         config.executor            = false
         config.connector           = connector
+        config.exit_on_terminate   = false
       end
     end
 

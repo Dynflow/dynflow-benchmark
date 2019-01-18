@@ -69,7 +69,8 @@ BenchmarkSetting = Struct.new(:connection_string,
                               :ping_interval,
                               :max_iterations) do
   def set_defaults
-    self.connection_string = 'postgres://postgres@/dynflow_example_telemetry'
+    pg_user = ENV['USER'] == 'foreman' ? 'foreman' : 'postgres'
+    self.connection_string = "postgres://#{pg_user}@/dynflow_benchmark"
     self.observer_only = false
     self.executor_only = false
     self.plans_count = 100
@@ -221,6 +222,9 @@ class Benchmark
     end
     wait_for_clients
     report
+  rescue Exception => e
+    puts "Unexpected error: #{e.message}"
+    puts e.backtrace.join("\n")
   ensure
     kill_services
   end
@@ -235,12 +239,14 @@ class Benchmark
     client = BenchmarkHelper.create_client
     yield client
   ensure
-    client.terminate.wait(5)
+    client.terminate.wait(5) if client
   end
 
   def ensure_db_prepared
     with_client do |client|
-      client.perform_validity_checks
+      if Gem::Version.new(Dynflow::VERSION) >= Gem::Version.new('1.1')
+        client.perform_validity_checks
+      end
     end
   end
 
@@ -272,9 +278,14 @@ class Benchmark
     latch = Concurrent::CountDownLatch.new(settings.plans_count)
     settings.plans_count.times do
       execution = client.trigger(SampleAction, settings.action_options)
-      execution.finished.on_fulfillment! do
+      on_fulfillment_block = Proc.new do
         latch.count_down
         puts "Pending #{latch.count}"
+      end
+      if execution.finished.respond_to?(:on_completion!)
+        execution.finished.on_completion!(&on_fulfillment_block)
+      else
+        execution.finished.on_fulfillment!(&on_fulfillment_block)
       end
     end
     latch.wait
