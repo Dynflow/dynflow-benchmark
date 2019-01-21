@@ -6,6 +6,7 @@ require 'optparse'
 BenchmarkSetting = Struct.new(:connection_string,
                               :observer_only,
                               :executor_only,
+                              :client_only,
                               :plans_count,
                               :executors_count,
                               :clients_count,
@@ -18,6 +19,7 @@ BenchmarkSetting = Struct.new(:connection_string,
     self.connection_string = "postgres://#{pg_user}@/dynflow_benchmark"
     self.observer_only = false
     self.executor_only = false
+    self.client_only = false
     self.plans_count = 100
     self.executors_count = 1
     self.clients_count = 1
@@ -40,7 +42,7 @@ settings = BenchmarkSetting.new.tap(&:set_defaults)
 OptionParser.new do |opts|
   opts.banner = "Usage: benchmark.rb [options]"
 
-  opts.on("c", "--connection-string [CONNECTION_STRING]", "Database connection string (default #{settings.connection_string}") do |v|
+  opts.on("-c", "--connection-string [CONNECTION_STRING]", "Database connection string (default #{settings.connection_string}") do |v|
     settings.connection_string = v
   end
 
@@ -50,6 +52,10 @@ OptionParser.new do |opts|
 
   opts.on("-E", "--executor", "Run only executor") do
     settings.executor_only = true
+  end
+
+  opts.on("-C", "--client", "Run only client") do
+    settings.client_only = true
   end
 
   opts.on("-e", "--executors-count EXECUTORS_COUNT", "Number of executors to run (default #{settings.executors_count})") do |v|
@@ -95,8 +101,7 @@ class SampleAction < Dynflow::Action
            step_duration_range: nil,
            ping_interval: 0.5,
            max_iterations: 2)
-    id = rand(1e10)
-    puts "Plannin action: #{id}"
+    puts "Planning action: #{execution_plan_id}"
     sub_actions_count.times do
       plan_action(SampleSubAction,
                   step_duration: step_duration,
@@ -104,11 +109,11 @@ class SampleAction < Dynflow::Action
                   ping_interval: ping_interval,
                   max_iterations: max_iterations)
     end
-    plan_self(id: id)
+    plan_self
   end
 
   def run
-    puts "Running action: #{input[:id]}"
+    puts "Running action: #{execution_plan_id}"
   end
 end
 
@@ -323,6 +328,8 @@ if settings.observer_only
   BenchmarkHelper.run_observer
 elsif settings.executor_only
   BenchmarkHelper.run_executor
+elsif settings.client_only
+  Benchmark.run_client(settings)
 else
   Benchmark.new(settings).run
 end
