@@ -166,9 +166,9 @@ class BenchmarkReport
     plans_by_real_time = @plans.sort_by(&:real_time)
     print_row("plans", @plans.size)
     print_row("duration", duration)
-    print_row("maximal_real_time", plans_by_real_time.last.real_time)
-    print_row("minimal_real_time", plans_by_real_time.first.real_time)
-    print_row("median_real_time", plans_by_real_time[plans_by_real_time.size/2].real_time)
+    print_row("max_realtime", plans_by_real_time.last.real_time)
+    print_row("min_realtime", plans_by_real_time.first.real_time)
+    print_row("med_realtime", plans_by_real_time[plans_by_real_time.size/2].real_time)
   end
 
   def duration
