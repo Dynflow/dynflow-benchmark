@@ -44,6 +44,21 @@ class BenchmarkHelper
       @world = world
     end
 
+    def with_client
+      client = create_client
+      yield client
+    ensure
+      client.terminate.wait(5) if client
+    end
+
+    def ensure_db_prepared
+      with_client do |client|
+        if Gem::Version.new(Dynflow::VERSION) >= Gem::Version.new('1.1')
+          client.perform_validity_checks
+        end
+      end
+    end
+
     def create_world
       config = Dynflow::Config.new
       config.persistence_adapter = persistence_adapter
