@@ -214,7 +214,8 @@ class Benchmark
 
   def run
     puts "The benchmark is starting…"
-    ensure_db_prepared
+    fork_client { BenchmarkHelper.ensure_db_prepared }
+    wait_for_clients
     fork_service { BenchmarkHelper.run_observer }
     settings.executors_count.times do
       fork_service { BenchmarkHelper.run_executor }
@@ -239,19 +240,8 @@ class Benchmark
     end
   end
 
-  def with_client
-    client = BenchmarkHelper.create_client
-    yield client
-  ensure
-    client.terminate.wait(5) if client
-  end
-
-  def ensure_db_prepared
-    with_client do |client|
-      if Gem::Version.new(Dynflow::VERSION) >= Gem::Version.new('1.1')
-        client.perform_validity_checks
-      end
-    end
+  def with_client(&block)
+    BenchmarkHelper.with_client(&block)
   end
 
   def wait_for_executors
@@ -320,6 +310,7 @@ class Benchmark
     @client_pids.each do |pid|
       Process.wait(pid)
     end
+    @client_pids = []
   end
 
 end
