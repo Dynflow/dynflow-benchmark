@@ -42,6 +42,11 @@ class BenchmarkHelper
     include LoggerHelper
     def set_world(world)
       @world = world
+      if @terminate && !@world.terminating?
+        logger.debug "Terminating world #{@world.id}"
+        @world.terminate.wait
+        logger.debug "World #{@world.id} termination finished"
+      end
     end
 
     def with_client
@@ -107,6 +112,11 @@ class BenchmarkHelper
         logger.debug "Terminating world #{@world.id}"
         @world.terminate.wait
         logger.debug "World #{@world.id} termination finished"
+      else
+        unless @terminate
+          logger.debug "World not present, triggering delayed termination"
+          @terminate = true
+        end
       end
     end
 
