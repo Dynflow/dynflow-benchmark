@@ -214,13 +214,12 @@ class Benchmark
 
   def run
     puts "The benchmark is starting…"
-    fork_client { BenchmarkHelper.ensure_db_prepared }
-    wait_for_clients
+    in_forked_client { BenchmarkHelper.ensure_db_prepared }
     fork_service { BenchmarkHelper.run_observer }
     settings.executors_count.times do
       fork_service { BenchmarkHelper.run_executor }
     end
-    wait_for_executors
+    in_forked_client { wait_for_executors }
     @started_at = Time.now
     settings.clients_count.times do
       fork_client { Benchmark.run_client(settings) }
@@ -311,6 +310,11 @@ class Benchmark
       Process.wait(pid)
     end
     @client_pids = []
+  end
+
+  def in_forked_client(&block)
+    fork_client(&block)
+    wait_for_clients
   end
 
 end
